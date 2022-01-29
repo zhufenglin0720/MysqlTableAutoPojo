@@ -1,9 +1,15 @@
 package com.example.utils;
 
+import com.example.enums.MysqlColumnTypeEnum;
+import com.example.utils.mapper.MysqlGeneratorMapperUtils;
+import com.example.utils.pool.ThreadPoolUtils;
+import com.example.utils.service.MysqlGeneratorServiceUtils;
+
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -46,9 +52,18 @@ public class MysqlGetTableInfoUtils {
                     continue;
                 }
                 List<String> commentList = getMysqlCommentResult(tableName, connection);
-                getMysqlTableAttrList(tableName,connection);
-                MysqlCreateJavaClassUtils.createJavaClass(tableName,resultSet,commentList);
+                List<TableInfo> tableInfos = getMysqlTableAttrList(tableName, connection);
+                //将新建mapper service文件的步骤移动至线程池里执行 TODO 线程池执行有问题
+//                ThreadPoolUtils.instance.execute(() -> {
+                    //生成pojo文件
+                    MysqlCreateJavaClassUtils.createJavaClass(tableName,tableInfos,commentList);
+                    //生成service文件，并封装对应的查询方法
+                    MysqlGeneratorServiceUtils.generatorServiceFile();
+                    //生成mapper文件，并封装固定的查询语句
+                    MysqlGeneratorMapperUtils.generatorMapperFile(tableName, tableInfos);
+//                });
             }
+            System.out.println("-----end------");
         }catch (Exception e){
             e.printStackTrace();
         }finally {
@@ -83,14 +98,31 @@ public class MysqlGetTableInfoUtils {
      * @param tableName 表名
      * @return 结果集
      */
-    private static void getMysqlTableAttrList(String tableName,Connection connection){
+    private static List<TableInfo> getMysqlTableAttrList(String tableName, Connection connection){
+        //保证有序性
+        List<TableInfo> result = new LinkedList<>();
         String sql = "select * from " + tableName;
         try {
             PreparedStatement statement = connection.prepareStatement(sql);
             resultSet = statement.executeQuery();
+            ResultSetMetaData data = resultSet.getMetaData();
+            int columnCount = data.getColumnCount();
+            if(columnCount > 0){
+                for (int i = 1 ; i <= columnCount ; i++){
+                    MysqlColumnTypeEnum typeEnum;
+                    try {
+                        typeEnum = MysqlColumnTypeEnum.valueOf(data.getColumnTypeName(i));
+                    }catch (Exception e){
+                        System.out.println(data.getColumnName(i) + "--" + data.getColumnTypeName(i));
+                        continue;
+                    }
+                    result.add(new TableInfo(data.getColumnName(i),JavaClassConvertNameUtils.humpNamedAttr(data.getColumnName(i)),typeEnum));
+                }
+            }
         }catch (Exception e){
             e.printStackTrace();
         }
+        return result;
     }
 
     private static void closeResultSet(){

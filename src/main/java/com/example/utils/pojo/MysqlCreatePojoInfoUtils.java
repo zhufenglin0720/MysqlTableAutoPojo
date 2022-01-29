@@ -1,12 +1,12 @@
-package com.example.utils;
+package com.example.utils.pojo;
 
 import com.example.enums.MysqlColumnTypeEnum;
+import com.example.utils.TableInfo;
+import com.example.utils.JavaClassConvertNameUtils;
+import com.example.utils.MysqlCreateJavaClassUtils;
 import org.apache.commons.lang3.StringUtils;
 
-import java.io.BufferedWriter;
 import java.io.FileWriter;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -32,16 +32,16 @@ public class MysqlCreatePojoInfoUtils {
      * 创建mysql实体类的信息
      * @param fileName
      * @param javaClassName
-     * @param resultSet
+     * @param tableInfos
      * @param commentList
      */
-    public static void createMysqlPojoClassInfo(String fileName,String javaClassName,ResultSet resultSet, List<String> commentList) {
+    public static void createMysqlPojoClassInfo(String fileName, String javaClassName, List<TableInfo> tableInfos, List<String> commentList) {
         simpleDateStr = new SimpleDateFormat().format(new Date());
         MYSQL_POJO_JAVA_CLASS_NAME = javaClassName;
-        BufferedWriter writer = null;
+        FileWriter writer = null;
         try {
-            writer = new BufferedWriter(new FileWriter(fileName));
-            createMysqlPojoInfo(writer, resultSet, commentList);
+            writer = new FileWriter(fileName);
+            createMysqlPojoInfo(writer, tableInfos, commentList);
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
@@ -58,12 +58,12 @@ public class MysqlCreatePojoInfoUtils {
     /**
      * 创建mysql pojo的java文件
      * @param writer
-     * @param resultSet
+     * @param tableInfos
      * @param commentList
      * @throws Exception
      */
-    public static void createMysqlPojoInfo(BufferedWriter writer, ResultSet resultSet, List<String> commentList) throws Exception {
-        String packageName = MysqlCreateJavaClassUtils.MYSQL_TABLE_POJO_LOCATION.substring(14).replaceAll("/", ".");
+    public static void createMysqlPojoInfo(FileWriter writer, List<TableInfo> tableInfos, List<String> commentList) throws Exception {
+        String packageName = JavaClassConvertNameUtils.packageName(MysqlCreateJavaClassUtils.MYSQL_TABLE_POJO_LOCATION);
         StringBuilder sb = new StringBuilder();
         StringBuilder constructionStr = initConstructionStr();
         StringBuilder getSetStr = new StringBuilder();
@@ -72,10 +72,9 @@ public class MysqlCreatePojoInfoUtils {
         sb.append(packageName);
         sb.append(";\r\n\r\n");
         //获取表属性数据
-        ResultSetMetaData data = resultSet.getMetaData();
-        if (data != null) {
+        if (commentList != null && !commentList.isEmpty()) {
             //判断是否需要import
-            checkAndAddImport(sb, data);
+            checkAndAddImport(sb, tableInfos);
         }
         //添加java文件的文档注释
         addComments(sb);
@@ -85,8 +84,8 @@ public class MysqlCreatePojoInfoUtils {
         sb.append(" {");
         sb.append("\r\n\r\n");
 
-        if (data != null) {
-            createTableAttrs(sb, constructionStr, getSetStr, data, commentList);
+        if (tableInfos != null && !tableInfos.isEmpty()) {
+            createTableAttrs(sb, constructionStr, getSetStr, tableInfos, commentList);
         }
         sb.append("\r\n");
         sb.append(constructionStr);
@@ -100,20 +99,13 @@ public class MysqlCreatePojoInfoUtils {
     /**
      * 检查mysql字段类型是否需要import 并拼接语句
      * @param sb 字符串
-     * @param data mysql表字段属性结果集
+     * @param tableInfos mysql表字段属性结果集
      * @throws Exception
      */
-    private static void checkAndAddImport(StringBuilder sb,ResultSetMetaData data) throws Exception{
+    private static void checkAndAddImport(StringBuilder sb,List<TableInfo> tableInfos) {
         List<String> alreadyImportLineList = new ArrayList<>();
-        int columnCount = data.getColumnCount();
-        for (int i = 1 ; i <= columnCount ; i++){
-            MysqlColumnTypeEnum typeEnum;
-            try {
-                typeEnum = MysqlColumnTypeEnum.valueOf(data.getColumnTypeName(i));
-            }catch (Exception e){
-                System.out.println(data.getColumnName(i) + "--" + data.getColumnTypeName(i));
-                continue;
-            }
+        for (TableInfo tableInfo : tableInfos){
+            MysqlColumnTypeEnum typeEnum = tableInfo.getTypeEnum();
             String importLine = typeEnum.getImportLine();
             if(StringUtils.isNotBlank(importLine) && !alreadyImportLineList.contains(importLine)){
                 alreadyImportLineList.add(importLine);
@@ -159,28 +151,22 @@ public class MysqlCreatePojoInfoUtils {
      * @param data   mysql表属性的结果集
      * @param result mysql表注释的结果集
      */
-    private static void createTableAttrs(StringBuilder sb,StringBuilder constructionStr,StringBuilder getSetStr,ResultSetMetaData data,List<String> result){
+    private static void createTableAttrs(StringBuilder sb,StringBuilder constructionStr,StringBuilder getSetStr,List<TableInfo> tableInfos,List<String> result){
         //是否添加注释标识
         boolean isCreateComment = true;
         StringBuilder stringBuilder = new StringBuilder();
         try {
-            int columnCount = data.getColumnCount();
-            if(result.size() != columnCount){
+            if(result.size() != tableInfos.size()){
                 isCreateComment = false;
             }
-            for (int i = 1 ; i <= columnCount ; i++){
-                String columnName = data.getColumnName(i);
-                MysqlColumnTypeEnum typeEnum;
-                try {
-                    typeEnum = MysqlColumnTypeEnum.valueOf(data.getColumnTypeName(i));
-                }catch (Exception e){
-                    System.out.println(columnName + "--" + data.getColumnTypeName(i));
-                    return;
-                }
+            for (int i = 0 ; i < tableInfos.size() ; i++){
+                TableInfo tableInfo = tableInfos.get(i);
+                String columnName = tableInfo.getAttributeName();
+                MysqlColumnTypeEnum typeEnum = tableInfo.getTypeEnum();
                 if(isCreateComment){
                     sb.append("    /**\r\n");
                     sb.append("     * ");
-                    sb.append(result.get(i - 1));
+                    sb.append(result.get(i));
                     sb.append("\r\n");
                     sb.append("     */\r\n");
                 }
@@ -190,8 +176,7 @@ public class MysqlCreatePojoInfoUtils {
                 sb.append(columnName);
                 sb.append(";\r\n");
 
-                createConstructionStr(constructionStr,typeEnum,i,columnName,columnCount);
-
+                createConstructionStr(constructionStr,typeEnum,i,columnName,tableInfos.size());
                 createGetterAndSetterStr(getSetStr,columnName,typeEnum);
 
                 stringBuilder.append("        ");
@@ -212,7 +197,7 @@ public class MysqlCreatePojoInfoUtils {
         constructionStr.append(typeEnum.getJavaTypeName());
         constructionStr.append(" ");
         constructionStr.append(columnName);
-        if(i == columnCount){
+        if(i == columnCount - 1){
             constructionStr.append("){");
             constructionStr.append("\r\n");
         }else{
