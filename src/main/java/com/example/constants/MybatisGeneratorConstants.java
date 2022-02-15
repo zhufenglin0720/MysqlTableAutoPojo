@@ -35,4 +35,9 @@ public class MybatisGeneratorConstants {
      * mysql表生成实体模型的文件夹路径间隔符
      */
     public final static String MYSQL_TABLE_POJO_CLASS_NAME_INTERVAL_LETTER = ".";
+    /**
+     * spring service 注解
+     */
+    public final static String SPRING_SERVICE_ANNOTATIONS_IMPORTS = "import org.springframework.stereotype.Service;";
+    public final static String SPRING_SERVICE_ANNOTATIONS = "@Service";
 }

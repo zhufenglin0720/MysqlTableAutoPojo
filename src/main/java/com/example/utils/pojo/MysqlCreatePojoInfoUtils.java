@@ -1,15 +1,15 @@
 package com.example.utils.pojo;
 
+import com.example.constants.MybatisGeneratorConstants;
 import com.example.enums.MysqlColumnTypeEnum;
 import com.example.utils.TableInfo;
 import com.example.utils.JavaClassConvertNameUtils;
 import com.example.utils.MysqlCreateJavaClassUtils;
+import com.example.utils.service.MysqlGeneratorServiceUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.FileWriter;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 /**
@@ -22,9 +22,13 @@ public class MysqlCreatePojoInfoUtils {
     private static String simpleDateStr;
 
     /**
-     * java的类名
+     * pojo java的类名
      */
     private static String MYSQL_POJO_JAVA_CLASS_NAME;
+    /**
+     * service java的类名
+     */
+    private static String MYSQL_SERVICE_JAVA_CLASS_NAME;
 
     private static final String JAVA_CLASS_AUTHOR = System.getProperty("author");
 
@@ -35,8 +39,8 @@ public class MysqlCreatePojoInfoUtils {
      * @param tableInfos
      * @param commentList
      */
-    public static void createMysqlPojoClassInfo(String fileName, String javaClassName, List<TableInfo> tableInfos, List<String> commentList) {
-        simpleDateStr = new SimpleDateFormat().format(new Date());
+    public static void createMysqlPojoClassInfo(String fileName, String javaClassName, List<TableInfo> tableInfos, List<String> commentList, String dateStr) {
+        simpleDateStr = dateStr;
         MYSQL_POJO_JAVA_CLASS_NAME = javaClassName;
         FileWriter writer = null;
         try {
@@ -53,6 +57,48 @@ public class MysqlCreatePojoInfoUtils {
                 }
             }
         }
+    }
+
+    public static void createMysqlServiceClassInfo(String fileName, String javaClassName){
+        MYSQL_SERVICE_JAVA_CLASS_NAME = javaClassName;
+        FileWriter writer = null;
+        try {
+            writer = new FileWriter(fileName);
+            createMysqlServiceInfo(writer);
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            if (writer != null) {
+                try {
+                    writer.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    public static void createMysqlServiceInfo(FileWriter writer) throws Exception{
+        String packageName = JavaClassConvertNameUtils.packageName(MysqlGeneratorServiceUtils.MYSQL_TABLE_SERVICE_LOCATION);
+        StringBuilder sb = new StringBuilder();
+        //创建包后，需要判断是否需要导包
+        sb.append("package ");
+        sb.append(packageName);
+        sb.append(";\r\n\r\n");
+        //导入注解相关
+        sb.append(MybatisGeneratorConstants.SPRING_SERVICE_ANNOTATIONS_IMPORTS);
+        sb.append("\r\n\r\n");
+        //添加java文件的文档注释
+        addComments(sb);
+        sb.append("\r\n");
+        sb.append(MybatisGeneratorConstants.SPRING_SERVICE_ANNOTATIONS);
+        sb.append("\r\n");
+        sb.append("public interface ");
+        sb.append(MYSQL_SERVICE_JAVA_CLASS_NAME);
+        sb.append(" {");
+        sb.append("\r\n\r\n");
+        sb.append("}");
+        writer.write(sb.toString());
     }
 
     /**
@@ -148,8 +194,10 @@ public class MysqlCreatePojoInfoUtils {
     /**
      * 拼接java类的所有属性
      * @param sb     字符串
-     * @param data   mysql表属性的结果集
-     * @param result mysql表注释的结果集
+     * @param constructionStr   无参/有参构造字符串
+     * @param getSetStr    get/set字符串
+     * @param tableInfos   mysql表属性的结果集
+     * @param result       mysql表注释的结果集
      */
     private static void createTableAttrs(StringBuilder sb,StringBuilder constructionStr,StringBuilder getSetStr,List<TableInfo> tableInfos,List<String> result){
         //是否添加注释标识

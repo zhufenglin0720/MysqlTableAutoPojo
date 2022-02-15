@@ -2,9 +2,12 @@ package com.example.utils;
 
 import com.example.constants.MybatisGeneratorConstants;
 import com.example.utils.pojo.MysqlCreatePojoInfoUtils;
+import com.example.utils.service.MysqlGeneratorServiceUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -15,9 +18,14 @@ import java.util.List;
 public class MysqlCreateJavaClassUtils {
 
     /**
+     * 文档注释内容 时间格式字符串
+     */
+    private static final String SIMPLE_DATE_FORMAT_STR = new SimpleDateFormat().format(new Date());
+
+    /**
      * mysql表生成实体模型的java文件后缀
      */
-    private final static String MYSQL_TABLE_POJO_CLASS_SUFFIX = ".java";
+    public final static String MYSQL_TABLE_POJO_CLASS_SUFFIX = ".java";
 
     /**
      * mysql表生成实体模型的文件夹位置
@@ -35,8 +43,10 @@ public class MysqlCreateJavaClassUtils {
     public static void createJavaClass(String tableName, List<TableInfo> tableInfos, List<String> commentList){
         if(createEntityByMysqlTableName(tableName)){
             //创建文件初始化文件内容
-            MysqlCreatePojoInfoUtils.createMysqlPojoClassInfo(MYSQL_POJO_JAVA_CLASS_FILE_NAME,MYSQL_POJO_JAVA_CLASS_NAME,tableInfos,commentList);
+            MysqlCreatePojoInfoUtils.createMysqlPojoClassInfo(MYSQL_POJO_JAVA_CLASS_FILE_NAME,MYSQL_POJO_JAVA_CLASS_NAME,tableInfos,commentList,SIMPLE_DATE_FORMAT_STR);
         }
+        //创建service java文件
+        MysqlGeneratorServiceUtils.generatorServiceFile(tableName);
     }
 
     /**

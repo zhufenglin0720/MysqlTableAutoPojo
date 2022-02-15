@@ -2,7 +2,6 @@ package com.example.utils;
 
 import com.example.enums.MysqlColumnTypeEnum;
 import com.example.utils.mapper.MysqlGeneratorMapperUtils;
-import com.example.utils.pool.ThreadPoolUtils;
 import com.example.utils.service.MysqlGeneratorServiceUtils;
 
 import java.sql.Connection;
@@ -57,8 +56,6 @@ public class MysqlGetTableInfoUtils {
 //                ThreadPoolUtils.instance.execute(() -> {
                     //生成pojo文件
                     MysqlCreateJavaClassUtils.createJavaClass(tableName,tableInfos,commentList);
-                    //生成service文件，并封装对应的查询方法
-                    MysqlGeneratorServiceUtils.generatorServiceFile();
                     //生成mapper文件，并封装固定的查询语句
                     MysqlGeneratorMapperUtils.generatorMapperFile(tableName, tableInfos);
 //                });
